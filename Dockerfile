@@ -3,7 +3,8 @@ FROM ubuntu:focal
 # Args + Defaults
 ARG CABAL_VERSION=3.2.0.0
 ARG GHC_VERSION=8.10.2
-ARG CARDANO_TAG_VERSION=1.25.1
+ARG CARDANO_VERSION=1.25.1
+ARG CARDANO_PORT=3000
 
 # Skip interactive installs
 ENV DEBIAN_FRONTEND=noninteractive
@@ -62,7 +63,7 @@ RUN export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 RUN git clone https://github.com/input-output-hk/cardano-node.git ${DOWNLOAD_FOLDER}/cardano-node
 RUN cd ${DOWNLOAD_FOLDER}/cardano-node && \
     git fetch --all --recurse-submodules --tags && \
-    git checkout tags/${CARDANO_TAG_VERSION} && \
+    git checkout tags/${CARDANO_VERSION} && \
     cabal configure --with-compiler=ghc-$(ghc --numeric-version) && \
     echo "package cardano-crypto-praos" >>  cabal.project.local && \
     echo "  flags: -external-libsodium-vrf" >>  cabal.project.local
@@ -70,8 +71,32 @@ RUN cd ${DOWNLOAD_FOLDER}/cardano-node && \
     cabal clean && \
     cabal update && \
     cabal build all
-RUN cp -p ${DOWNLOAD_FOLDER}/cardano-node/dist-newstyle/build/x86_64-linux/ghc-${GHC_VERSION}/cardano-node-${CARDANO_TAG_VERSION}/x/cardano-node/build/cardano-node/cardano-node ${BIN_FOLDER} && \
-    cp -p ${DOWNLOAD_FOLDER}/cardano-node/dist-newstyle/build/x86_64-linux/ghc-${GHC_VERSION}/cardano-cli-${CARDANO_TAG_VERSION}/x/cardano-cli/build/cardano-cli/cardano-cli ${BIN_FOLDER}
+RUN cp -p ${DOWNLOAD_FOLDER}/cardano-node/dist-newstyle/build/x86_64-linux/ghc-${GHC_VERSION}/cardano-node-${CARDANO_VERSION}/x/cardano-node/build/cardano-node/cardano-node ${BIN_FOLDER} && \
+    cp -p ${DOWNLOAD_FOLDER}/cardano-node/dist-newstyle/build/x86_64-linux/ghc-${GHC_VERSION}/cardano-cli-${CARDANO_VERSION}/x/cardano-cli/build/cardano-cli/cardano-cli ${BIN_FOLDER}
 
+ENV CARDANO_CONFIG=/usr/local/cardano/config
+ENV CARDANO_DB=/usr/local/cardano/db
+ENV CARDANO_SOCKET=/usr/local/cardano/socket/node.socket
+RUN bash -c 'mkdir -p /usr/local/cardano/{db,config,socket}'
 
+# Latest Cardano Config
+RUN export LAST_BUILD=$(curl -s https://hydra.iohk.io/job/Cardano/cardano-node/cardano-deployment/latest-finished/download/1/index.html | grep -e "This item has moved" |  sed -e 's/.*build\/\(.*\)\/download.*/\1/') && \
+    wget -q -O ${CARDANO_CONFIG}/mainnet-config.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-config.json && \
+    wget -q -O ${CARDANO_CONFIG}/mainnet-byron-genesis.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-byron-genesis.json && \
+    wget -q -O ${CARDANO_CONFIG}/mainnet-shelley-genesis.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-shelley-genesis.json && \
+    wget -q -O ${CARDANO_CONFIG}/mainnet-topology.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-topology.json
+
+LABEL GHC_VERSION=${GHC_VERSION}
+LABEL CABAL_VERSION=${CABAL_VERSION}
+LABEL CARDANO_VERSION={CARDANO_VERSION}
+LABEL CONFIG_BUILD=${LAST_BUILD}
+
+VOLUME ${CARDANO_DB}
+EXPOSE 3000 12788 12798
+ENTRYPOINT ["/bin/sh", "-c", "cardano-node run \
+  --database-path  $CARDANO_DB \
+  --socket-path $CARDANO_SOCKET \
+  --port $CARDANO_PORT \
+  --config $CARDANO_CONFIG/mainnet-config.json \
+  --topology $CARDANO_CONFIG/mainnet-topology.json"]
 
