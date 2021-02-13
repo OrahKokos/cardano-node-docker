@@ -1,0 +1,4 @@
+grafana/data
+prom/data
+relay-node-1/db
+relay-node-2/db

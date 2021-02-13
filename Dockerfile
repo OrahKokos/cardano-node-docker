@@ -86,17 +86,14 @@ RUN export LAST_BUILD=$(curl -s https://hydra.iohk.io/job/Cardano/cardano-node/c
     wget -q -O ${CARDANO_CONFIG}/mainnet-shelley-genesis.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-shelley-genesis.json && \
     wget -q -O ${CARDANO_CONFIG}/mainnet-topology.json https://hydra.iohk.io/build/${LAST_BUILD}/download/1/mainnet-topology.json
 
+RUN echo "#!/bin/bash \n cardano-node run --database-path  $CARDANO_DB --socket-path $CARDANO_SOCKET --port $CARDANO_PORT --config $CARDANO_CONFIG/mainnet-config.json --topology $CARDANO_CONFIG/mainnet-topology.json" > ./start
+RUN chmod +x ./start
+
 LABEL GHC_VERSION=${GHC_VERSION}
 LABEL CABAL_VERSION=${CABAL_VERSION}
 LABEL CARDANO_VERSION={CARDANO_VERSION}
 LABEL CONFIG_BUILD=${LAST_BUILD}
 
-VOLUME ${CARDANO_DB}
-EXPOSE 3000 12788 12798
-ENTRYPOINT ["/bin/sh", "-c", "cardano-node run \
-  --database-path  $CARDANO_DB \
-  --socket-path $CARDANO_SOCKET \
-  --port $CARDANO_PORT \
-  --config $CARDANO_CONFIG/mainnet-config.json \
-  --topology $CARDANO_CONFIG/mainnet-topology.json"]
+EXPOSE 3000 12798
+ENTRYPOINT ["./start"]
 

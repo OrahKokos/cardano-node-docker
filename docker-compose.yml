@@ -1,0 +1,55 @@
+version: '3.4'
+
+networks:
+  monitor-net:
+    driver: bridge
+
+services:
+  relay-node-1:
+    image: cardano-node-docker
+    container_name: cardano-node
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes: 
+      - ./relay-node-1/db:/usr/local/cardano/db
+    ports:
+      - "3000:9001"
+      - "12798:12798"
+    labels:
+      org.label-schema.group: "cardano"
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./prom/config:/etc/prometheus
+      - ./prom/data:/data/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=48h'
+    ports:
+      - "9090:9090"
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    volumes:
+      - ./grafana/data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    expose:
+      - 3000
+    networks:
+      - monitor-net
+    labels:
+      org.label-schema.group: "monitoring"
+
