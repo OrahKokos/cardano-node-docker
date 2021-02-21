@@ -1,8 +1,13 @@
 global:
-  scrape_interval:     15s
-  evaluation_interval: 15s
+  external_labels:
+    monitor: codelab-monitor
+  scrape_interval: 15s
 scrape_configs:
-  - job_name: services
-    static_configs:
-      - targets:
-          - 'relay-node-1:12798'
+- job_name: prometheus
+  scrape_interval: 5s
+  static_configs:
+  - labels:
+      alias: relay-node-1
+      type: cardano-node
+    targets:
+    - relay-node-1:12798
